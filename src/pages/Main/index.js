@@ -11,6 +11,8 @@ export default class Main extends Component {
 		newRepo: '',
 		repositories: [],
 		loading: false,
+		error: null,
+		placeholderMessage: 'Adicionar repositório',
 	};
 
 	componentDidMount() {
@@ -28,29 +30,51 @@ export default class Main extends Component {
 	}
 
 	handleInputChange = e => {
-		this.setState({ newRepo: e.target.value });
+		this.setState({ newRepo: e.target.value, error: null });
 	};
 
 	handleSubmit = async e => {
 		e.preventDefault();
-		const { newRepo, repositories } = this.state;
 
-		this.setState({ loading: true });
+		this.setState({ loading: true, error: false });
 
-		const response = await api.get(`/repos/${newRepo}`);
-		const data = {
-			name: response.data.full_name,
-		};
+		try {
+			const { newRepo, repositories } = this.state;
 
-		this.setState({
-			repositories: [...repositories, data],
-			newRepo: '',
-			loading: false,
-		});
+			const response = await api.get(`/repos/${newRepo}`);
+
+			const data = {
+				name: response.data.full_name,
+			};
+
+			if (repositories.find(repo => repo.name === newRepo)) {
+				this.setState({ placeholderMessage: 'Repositório duplicado' });
+				throw new Error('Repositório duplicado');
+			}
+
+			this.setState({
+				repositories: [...repositories, data],
+				placeholderMessage: 'Adicionar repositório',
+			});
+		} catch (error) {
+			const { placeholderMessage } = this.state;
+			if (placeholderMessage === 'Adicionar repositório') {
+				this.setState({ placeholderMessage: 'Repositório inexistente' });
+			}
+			this.setState({ error: true });
+		} finally {
+			this.setState({ loading: false, newRepo: '' });
+		}
 	};
 
 	render() {
-		const { newRepo, loading, repositories } = this.state;
+		const {
+			newRepo,
+			loading,
+			repositories,
+			error,
+			placeholderMessage,
+		} = this.state;
 		return (
 			<Container>
 				<h1>
@@ -58,10 +82,10 @@ export default class Main extends Component {
 					Repositórios
 				</h1>
 
-				<Form onSubmit={this.handleSubmit}>
+				<Form onSubmit={this.handleSubmit} error={error}>
 					<input
 						type="text"
-						placeholder="Adicionar repositório"
+						placeholder={placeholderMessage}
 						value={newRepo}
 						onChange={this.handleInputChange}
 					/>
